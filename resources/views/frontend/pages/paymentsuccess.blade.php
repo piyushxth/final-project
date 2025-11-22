@@ -20,7 +20,8 @@
          </div>
          <div class="col-lg-9 col-md-12 col-sm-12">
             <div class="alert alert-success success-notification">
-               <p>Payment successfull !!, YOur oder Placed successfully.</p>
+               <p><i class="fas fa-check-circle"></i> Payment successful! Your order has been placed successfully.</p>
+               <p class="mt-2"><small><i class="fas fa-info-circle"></i> This is a simulation of the eSewa payment process for demonstration purposes.</small></p>
             </div>
             <div class="button d-flex mt-5 gap-3">
                <a href="{{ route('customer.order.index') }} " class="btn btn-primary">View My Order</a>

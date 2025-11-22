@@ -87,12 +87,23 @@
                      </span>
                   </h6>
                </div>
+               <div class="payment-options mt-4 p-3 bg-light rounded">
+                  <h6><i class="fas fa-credit-card"></i> Payment Options</h6>
+                  <p class="mb-2">Choose your preferred payment method:</p>
+                  <ul class="list-unstyled">
+                     <li><i class="fas fa-check-circle text-success"></i> Cash on Delivery - Pay when you receive your order</li>
+                     <li><i class="fas fa-check-circle text-success"></i> eSewa - Secure online payment</li>
+                  </ul>
+               </div>
                <div class="shopping-action-button ">
                   <div class="button me-3">
                      <a  class="continue-shopping"  href="{{ route('home') }}"> Continue Shopping</a>
                   </div>
                   <div class="button ">
-                     <a class="checkout" href="{{ route('customer.checkout.index') }}"> Checkout</a>
+                     <a class="checkout" href="{{ route('customer.checkout.index') }}"> Proceed to Checkout</a>
+                  </div>
+                  <div class="button ms-3">
+                     <a class="btn btn-success" href="{{ route('customer.checkout.index') }}?payment=esewa"> Proceed to Payment</a>
                   </div>
                </div>
                @else

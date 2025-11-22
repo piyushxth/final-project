@@ -29,23 +29,27 @@ class CheckoutController extends Controller
         $this->esewa_failure_url = url("/") . "/pay/esewa-fail";
         $this->esewa_merchant_id = env("ESEWA_MERCHANT_CODE", "ES-ELN");
     }
-    public function index()
+    public function index(Request $request)
     {
         $title = "Checkout";
         $shipping = Shipping::get();
         $provinces = Provinces::orderBy("id", "ASC")->get();
         $province_id =
-            Auth::user()->provience != null ? Auth::user()->provience : "";
+            \Illuminate\Support\Facades\Auth::user()->provience != null ? \Illuminate\Support\Facades\Auth::user()->provience : "";
+        
+        // If payment parameter is set to esewa, pre-select eSewa payment method
+        $preselect_esewa = $request->has('payment') && $request->payment == 'esewa';
+        
         return view(
             "frontend/pages/checkout",
-            compact("title", "shipping", "provinces", "province_id")
+            compact("title", "shipping", "provinces", "province_id", "preselect_esewa")
         );
     }
 
     public function store(Request $request)
     {
         // dd($request);
-        $userdata = User::find(Auth::user()->id);
+        $userdata = User::find(\Illuminate\Support\Facades\Auth::user()->id);
         $users = User::where("role", "admin")->first();
 
         $this->validate(
@@ -78,12 +82,15 @@ class CheckoutController extends Controller
         $input["name"] = $request->input("street");
         $input["price"] = $request->input("sub_total");
         $shipping = Shipping::create($input);
-        $shippingId = Shipping::latest()->first();
+        if (!$shipping) {
+            throw new \Exception('Failed to create shipping record');
+        }
+        $shippingId = $shipping->id; // Use the created shipping ID directly
         $inputOrder = $request->all();
-        $inputOrder["order_number"] = "ORD-" . strtoupper(Str::random(10));
-        $inputOrder["user_id"] = Auth::user()->id;
+        $inputOrder["order_number"] = "ORD-" . strtoupper(\Illuminate\Support\Str::random(10));
+        $inputOrder["user_id"] = \Illuminate\Support\Facades\Auth::user()->id;
         $inputOrder["sub_total"] = $request->sub_total;
-        $inputOrder["shipping_id"] = $shippingId->id;
+        $inputOrder["shipping_id"] = $shippingId;
         $inputOrder["total_amount"] = $request->input("sub_total");
         $inputOrder["phone"] = $request->input("number");
         $inputOrder["full_name"] = $request->input("name");
@@ -92,28 +99,43 @@ class CheckoutController extends Controller
         try {
             $provienceShipping = Provinces::where('id', $request->input("provience"))->get("province_name");
             $districtShipping = Districts::where('id', $request->input("district"))->get("district_name");
-            $provienceBilling = Provinces::where('id', Auth()->User()->provience)->get("province_name");
-            $districtBilling = Districts::where('id', Auth()->User()->district)->get("district_name");
+            $provienceBilling = Provinces::where('id', \Illuminate\Support\Facades\Auth::user()->provience)->get("province_name");
+            $districtBilling = Districts::where('id', \Illuminate\Support\Facades\Auth::user()->district)->get("district_name");
             $order = Order::create($inputOrder);
-            $orderId = Order::latest()->first();
-            $request->request->add(['order_id' => $orderId->id]);
-            $date = date($orderId->created_at);
+            if (!$order) {
+                throw new \Exception('Failed to create order');
+            }
+            $orderId = $order->id; // Use the created order ID directly
+            $request->request->add(['order_id' => $orderId]);
+            $date = date($order->created_at);
 
             //Insert into OrderItems Table
-            foreach (Cart::instance(auth()->user()->id)->content() as $item) {
-                $orderitems = OrderItems::create([
-                    "order_id" => $orderId->id,
+            $cartItems = \Gloudemans\Shoppingcart\Facades\Cart::instance(\Illuminate\Support\Facades\Auth::user()->id)->content();
+            
+            // Check if cart is empty
+            if ($cartItems->isEmpty()) {
+                throw new \Exception('Cart is empty');
+            }
+            
+            $orderItemsCreated = false;
+            foreach ($cartItems as $item) {
+                $orderItem = OrderItems::create([
+                    "order_id" => $orderId,
                     "product_id" => $item->model->id,
                     "quantity" => $item->qty,
                     "size" => $item->options[0],
                     "price" => $item->price,
                     "product_attr_image" => $item->options[1],
                 ]);
+                
+                if ($orderItem) {
+                    $orderItemsCreated = true;
+                }
             }
 
             $notification_details = [
                 "title" => "New order created",
-                "actionURL" => route("admin.order.show", $orderId->id),
+                "actionURL" => route("admin.order.show", $orderId),
                 "fas" => "fa-file-alt",
             ];
 
@@ -133,14 +155,14 @@ class CheckoutController extends Controller
                 "districtBilling" => $districtBilling[0]['district_name'],
             ];
 
-            Notification::send($users, new StatusNotification($notification_details));
-            Mail::to(Auth::user()->email)->send(
+            \Illuminate\Support\Facades\Notification::send($users, new StatusNotification($notification_details));
+            \Illuminate\Support\Facades\Mail::to(\Illuminate\Support\Facades\Auth::user()->email)->send(
                 new \App\Mail\OrderMailable($email_details)
             );
 
             //Remove Stock and Cart
-            if ($orderitems) {
-                foreach (Cart::instance(auth()->user()->id)->content() as $item) {
+            if ($orderItemsCreated) {
+                foreach (\Gloudemans\Shoppingcart\Facades\Cart::instance(\Illuminate\Support\Facades\Auth::user()->id)->content() as $item) {
                     $remove_size = ProductSizes::where([
                         "product_id" => $item->model->id,
                         "size" => $item->options[0],
@@ -148,10 +170,11 @@ class CheckoutController extends Controller
                     $remove_size->stock = $remove_size->stock - $item->qty;
                     $remove_size->save();
                 }
-                Cart::destroy();
+                \Gloudemans\Shoppingcart\Facades\Cart::destroy();
             }
             if ($inputOrder['payment_method'] == 'esewa') {
-                $this->payProcess($request);
+                // For eSewa, redirect to simulation page with the specific order ID
+                return redirect()->route('esewa.simulation', ['order_id' => $orderId]);
             } else {
                 return redirect()
                     ->route("customer.checkout.finish")
@@ -175,20 +198,19 @@ class CheckoutController extends Controller
 
     public function payProcess(Request $request)
     {
-
-        if (\App::environment(["local", "staging", "dev", "development"])) {
-            $config = new Config(
-                $this->esewa_success_url,
-                $this->esewa_failure_url
-            );
+        // Get the latest order for the user
+        $order = \App\Models\Order::where('user_id', \Illuminate\Support\Facades\Auth::user()->id)->latest()->first();
+        
+        // Check if order exists
+        if ($order) {
+            // Redirect to simulation page instead of actual eSewa gateway
+            return redirect()->route('esewa.simulation', ['order_id' => $order->id]);
         } else {
-            $config = new Config(
-                $this->esewa_success_url,
-                $this->esewa_failure_url,
-                $this->esewa_merchant_id
-            );
+            // If no order found, redirect back with error
+            return redirect()
+                ->route("customer.checkout.index")
+                ->with("error_msg", "Order not found. Please try again.");
         }
-        $response = $this->_processEsewa($config,  $request);
     }
 
     public function _processEsewa($gateway_configuration, $request)
@@ -197,7 +219,7 @@ class CheckoutController extends Controller
         $o_id = $request->order_id;
 
         // Initialize eSewa client
-        $esewa = new Client($gateway_configuration);
+        $esewa = new \Cixware\Esewa\Client($gateway_configuration);
 
         // Process the payment
         $esewa->process($o_id, $total_amount, 0, 0, 0);
@@ -209,20 +231,33 @@ class CheckoutController extends Controller
 
     public function esewasuccess(Request $request)
     {
-        $order_id = $request->input("oid");
-        $amount = $request->input("amt");
-        $refid = $request->input("refId");
+        // For simulation, we get order_id from the request (not from eSewa response)
+        $order_id = $request->input("order_id") ?? $request->query("order_id");
+        
+        // If not in request, try to get from session (fallback)
+        if (!$order_id) {
+            $order_id = session('esewa_order_id');
+        }
       
-        $payment_gateway = Str::ucfirst("esewa");
+        $payment_gateway = \Illuminate\Support\Str::ucfirst("esewa");
         $title = "Payment Success";
+        
+        // Find order by ID
         $order_details = Order::where([
             "id" => $order_id,
             "payment_method" => "esewa",
         ])->first();
-        if ($order_details->payment_status == "unpaid") {
+        
+        // For simulation, we'll assume payment is always successful
+        if ($order_details && $order_details->payment_status == "unpaid") {
             $order_details->payment_status = "paid";
             $order_details->updated_at = now()->format("Y-m-d H:i:s");
             $order_details->update();
+            
+            // Update order status to confirmed
+            $order_details->status = "confirmed";
+            $order_details->update();
+            
             return view(
                 "frontend.pages.paymentsuccess",
                 compact(
@@ -230,11 +265,20 @@ class CheckoutController extends Controller
                 )
             );
         } 
+        
+        // If order already paid or not found, still show success for simulation
+        return view(
+            "frontend.pages.paymentsuccess",
+            compact(
+                "title"
+            )
+        );
     }
 
     public function esewafail(Request $request)
     {
         $title = "Payment Failed";
+        // For simulation, we'll show the failure page but allow users to try again
         return view(
             "frontend.pages.paymentfail",
             compact(

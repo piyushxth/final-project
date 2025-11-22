@@ -1,0 +1,54 @@
+## Vendor directories
+/vendor/
+
+## Build directories
+/build/
+/bundle/
+/dist/
+
+### JetBrains template
+/.idea/*
+!/.idea/dictionaries/
+!/.idea/dictionaries/*.xml
+
+### VisualStudioCode template
+/.vscode/
+
+### NetBeans template
+/.nb-gradle/
+/nbbuild/
+/nbdist/
+/nbproject/
+
+### Windows template
+*.lnk
+Thumbs.db
+[Dd]esktop.ini
+ehthumbs.db
+ehthumbs_vista.db
+
+### macOS template
+.DS_Store
+._*
+
+### Linux template
+*~
+.Trash-*
+.directory
+.fuse_hidden*
+.nfs*
+
+### Editor files
+*.njsproj
+*.ntvs*
+*.sln
+*.suo
+*.sw?
+
+### Generated files
+*.cache
+*.key
+*.log
+*.zip
+.env
+phpunit.xml

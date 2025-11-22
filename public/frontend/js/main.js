@@ -448,6 +448,43 @@ $(document).ready(function () {
         $(".nav-Search-bar").hide();
     }
 
+    // Search functionality
+    $('.search-icon').on('click', function(e) {
+        e.stopPropagation();
+        $('.search-box').toggle();
+        $('.search-box input[name="keywords"]').focus();
+    });
+
+    // Close search when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.nav-Search-bar').length) {
+            $('.search-box').hide();
+        }
+    });
+
+    // Live search functionality
+    $('.search-box input[name="keywords"]').on('keyup', function() {
+        var keywords = $(this).val();
+        var baseUrl = $("body").attr("data-siteurl");
+        
+        if (keywords.length >= 2) {
+            $.ajax({
+                url: baseUrl + '/search',
+                method: 'GET',
+                data: { keywords: keywords },
+                success: function(response) {
+                    // Display search results
+                    $('.search-results').html(response).show();
+                },
+                error: function() {
+                    $('.search-results').hide();
+                }
+            });
+        } else {
+            $('.search-results').hide();
+        }
+    });
+
     showLoggedInMenu(false);
     $(document).on("keydown", function (event) {
         if (event.key == "Escape") {
@@ -1154,6 +1191,9 @@ function isCustomerLoggedIn() {
         return true;
     }
 }
+
+// Live search functionality is now handled in the header file
+// This section has been removed to avoid duplication);
 
 
 

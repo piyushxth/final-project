@@ -175,11 +175,11 @@
                   <div class="col-lg-12 col-md-12 col-sm-12">
                      <div class="cash-on-delivery">
                         <div class="form-check">
-                           <input class="form-check-input" type="radio" value="cod" name="payment_method" checked id="payment_method_cod">
+                           <input class="form-check-input" type="radio" value="cod" name="payment_method" id="payment_method_cod" {{ (isset($preselect_esewa) && $preselect_esewa) ? '' : 'checked' }}>
                            <label class="form-check-label" for="payment_method_cod">Cash on delivery</label>
                            <br>
-                           <!-- <input class="form-check-input" type="radio" value="esewa" name="payment_method" id="payment_method_esewa">
-                           <label class="form-check-label" for="payment_method_esewa"> Esewa</label> -->
+                           <input class="form-check-input" type="radio" value="esewa" name="payment_method" id="payment_method_esewa" {{ (isset($preselect_esewa) && $preselect_esewa) ? 'checked' : '' }}>
+                           <label class="form-check-label" for="payment_method_esewa"> Esewa</label>
                            @error('payment_method')
                            <div class="text-danger">
                               {{ $errors->first('payment_method') }}

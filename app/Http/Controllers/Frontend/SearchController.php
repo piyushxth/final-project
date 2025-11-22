@@ -79,7 +79,7 @@ class SearchController extends Controller
         }
 
         $sql .= " ORDER BY products.id DESC";
-        $results = DB::select($sql);
+        $results = \Illuminate\Support\Facades\DB::select($sql);
 
         $results = $this->arrayPaginator($results, $request);
 
@@ -108,18 +108,57 @@ class SearchController extends Controller
     public function site_search(Request $request){
         $search_keyword = $request->get('keywords');
 
-        $products=Product::where('product_name','LIKE','%'.$search_keyword."%");
-         $brands = Brand::where(function ($q) use ($search_keyword) {
+        // For AJAX live search
+        if ($request->ajax()) {
+            $products = Product::where('product_name', 'LIKE', '%' . $search_keyword . '%')
+                ->orWhere('description', 'LIKE', '%' . $search_keyword . '%')
+                ->limit(10)
+                ->get();
 
+            $output = '';
+            if ($products->count() > 0) {
+                foreach ($products as $product) {
+                    $output .= '<div class="search-result-item">';
+                    $output .= '<a href="' . route('main_product', $product->slug) . '">';
+                    
+                    // Product image
+                    if ($product->product_image && file_exists(public_path('images/' . $product->product_image))) {
+                        $output .= '<img src="' . asset('images/' . $product->product_image) . '" alt="' . $product->product_name . '">';
+                    } else {
+                        $output .= '<div class="no-image"><i class="fas fa-image"></i></div>';
+                    }
+                    
+                    // Product info
+                    $output .= '<div class="product-info">';
+                    $output .= '<div class="product-name">' . $product->product_name . '</div>';
+                    if ($product->description) {
+                        $output .= '<div class="product-description">' . substr($product->description, 0, 60) . '...</div>';
+                    }
+                    $output .= '<div class="product-price">Rs. ' . number_format($product->regular_price) . '</div>';
+                    $output .= '</div>';
+                    
+                    $output .= '</a>';
+                    $output .= '</div>';
+                }
+            } else {
+                $output .= '<div class="no-results">No products found</div>';
+            }
+            
+            return $output;
+        }
+
+        // For regular search page
+        $brands = Brand::where(function ($q) use ($search_keyword) {
             $q->orWhere("name", "LIKE", "%" . $search_keyword . "%");
             $q->orWhere("description", "LIKE", "%" . $search_keyword . "%");
-    })->orderBy("created_at", "DESC")->get();
-    $products = Product::where(function ($q) use ($search_keyword) {
-
-        $q->orWhere("product_name", "LIKE", "%" . $search_keyword . "%");
-        $q->orWhere("description", "LIKE", "%" . $search_keyword . "%");
-})->orderBy("created_at", "DESC")->get();
-      return  view('frontend.pages.search', compact('products','brands'));
+        })->orderBy("created_at", "DESC")->get();
+        
+        $products = Product::where(function ($q) use ($search_keyword) {
+            $q->orWhere("product_name", "LIKE", "%" . $search_keyword . "%");
+            $q->orWhere("description", "LIKE", "%" . $search_keyword . "%");
+        })->orderBy("created_at", "DESC")->get();
+        
+        return view('frontend.pages.search', compact('products','brands'));
     }
 
 }

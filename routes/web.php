@@ -93,6 +93,9 @@ Route::get(
 Route::get("products/{slug}", "Frontend\FrontendController@products")->name(
     "products"
 );
+Route::get("product/{slug}", "Frontend\FrontendController@main_product")->name(
+    "main_product"
+);
 Route::get("products_search", "Frontend\SearchController@products_search");
 Route::get("contact", "Frontend\FrontendController@contact")->name("contact");
 Route::post("contact_details", "Frontend\FrontendController@contact_details")->name("contact_details");
@@ -127,6 +130,13 @@ Route::get("brands/{slug}", "Frontend\FrontendController@brand_details")->name(
 Route::get("search", "Frontend\SearchController@site_search")->name(
     "frontend.site_search"
 );
+
+Route::post("chat", "Frontend\FrontendController@chat")->name("frontend.chat");
+
+// Test route for search functionality
+Route::get("test-search", function() {
+    return response()->json(['status' => 'Search route is working']);
+});
 
 /** Customer Starts **/
 Route::namespace("Customer")
@@ -273,3 +283,9 @@ Route::get("getUploadedFiles", "Admin\CkEditorController@getUploadedFiles")->nam
 // esewa 
 Route::get("pay/esewa-success", "Customer\CheckoutController@esewasuccess")->name("pay.esewa-success");
 Route::get("pay/esewa-fail", "Customer\CheckoutController@esewafail")->name("pay.esewa-fail");
+
+// eSewa Simulation
+Route::get("esewa/simulation/{order_id}", function($order_id) {
+    $order = \App\Models\Order::findOrFail($order_id);
+    return view('frontend.pages.esewa_simulation', compact('order'));
+})->name("esewa.simulation")->middleware(['auth']);
